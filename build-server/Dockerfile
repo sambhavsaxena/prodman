@@ -7,11 +7,11 @@ RUN apt-get update && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /home/app
+WORKDIR /home/build-server
 
-COPY main.sh build.js package*.json ./
+COPY .env main.sh build.js package*.json ./
 
 RUN npm install && \
     chmod +x main.sh build.js
 
-ENTRYPOINT ["/home/app/main.sh"]
+ENTRYPOINT ["/home/build-server/main.sh"]
