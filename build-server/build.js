@@ -13,65 +13,83 @@ const s3 = new S3Client({
     region: process.env.AWS_REGION,
     credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+        secretAccessKey: process.env.AWS_ACCESS_KEY_SECRET
     }
 });
 
-const upload_static_files = async () => {
-    const possible_build_directories = ["dist", "build"];
-    let build_director_path = null;
-    for (const folder of possible_build_directories) {
-        const valid_build_directory = path.join(__dirname, "source", folder);
-        if (fs.existsSync(valid_build_directory)) {
-            build_director_path = valid_build_directory;
-            break;
-        }
-    }
-    if (!build_director_path) {
-        console.log("Error: Build directory not found!");
-        return;
-    }
-    const build_contents = fs.readdirSync(build_director_path, {
-        recursive: true,
-    });
-    for (const file of build_contents) {
-        const file_path = path.join(build_director_path, file);
-        if (fs.lstatSync(file_path).isDirectory()) continue;
-        console.log(`Uploading ${file}`);
-        const command = new PutObjectCommand({
-            Bucket: process.env.AWS_BUCKET_NAME,
-            Key: `__outputs/${PROJECT_ID}/${file}`,
-            Body: fs.createReadStream(file_path),
-            ContentType: mime.lookup(file_path),
-        });
-        try {
-            await s3.send(command);
-        } catch (err) {
-            console.error(`Error uploading file: ${err}`);
-            throw err;
-        }
-    }
-    return;
-}
+const COMMON_BUILD_DIRS = ['build', 'dist', 'public', 'out', '.output', '.next'];
 
-const build_app_from_source = async () => {
+const findBuildDirectory = (sourceDir) => {
+    for (const buildDir of COMMON_BUILD_DIRS) {
+        const potentialBuildPath = path.join(sourceDir, buildDir);
+        if (fs.existsSync(potentialBuildPath) && fs.lstatSync(potentialBuildPath).isDirectory()) {
+            return potentialBuildPath;
+        }
+    }
+    throw new Error(`Build directory not found. Ensure that one of the following directories exists: ${COMMON_BUILD_DIRS.join(', ')}`);
+};
+
+const build_app_and_upload_output = async () => {
     console.log("Starting build process...");
     const source_directory_path = path.join(__dirname, 'source');
-    const upload_process = exec(`cd ${source_directory_path} && npm install && npm run build`);
-    upload_process.stdout.on('data', (data) => {
-        console.log(data.toString());
-    });
-    upload_process.stderr.on('data', (data) => {
-        console.log(data.toString());
-    });
-    upload_process.on('exit', (code) => {
-        console.log(`Installation process exited with code ${code}`);
-    });
-    upload_process.on('close', async (code) => {
-        console.log(`Build complete✨\n[Completed with status code: ${code}]\nUploading assets...`);
-        await upload_static_files();
-        console.log("Upload complete");
-    });
-}
 
-build_app_from_source();
+    return new Promise((resolve, reject) => {
+        const upload_process = exec(`cd ${source_directory_path} && npm install && npm run build`);
+
+        upload_process.stdout.on('data', (data) => {
+            console.log(data.toString());
+        });
+
+        upload_process.stderr.on('data', (data) => {
+            console.error(data.toString());
+        });
+
+        upload_process.on('close', async (code) => {
+            if (code !== 0) {
+                reject(new Error(`Build process exited with code ${code}`));
+                return;
+            }
+
+            try {
+                console.log(`Build complete✨\nUploading assets...`);
+                const build_directory = findBuildDirectory(source_directory_path);
+                console.log(`Found build directory: ${build_directory}`);
+
+                const build_contents = fs.readdirSync(build_directory, {
+                    recursive: true,
+                });
+
+                for (const file of build_contents) {
+                    const file_path = path.join(build_directory, file);
+                    if (fs.lstatSync(file_path).isDirectory()) continue;
+
+                    console.log(`Uploading ${file}`);
+                    const command = new PutObjectCommand({
+                        Bucket: process.env.AWS_BUCKET_NAME,
+                        Key: `__outputs/${PROJECT_ID}/${file}`,
+                        Body: fs.createReadStream(file_path),
+                        ContentType: mime.lookup(file_path),
+                    });
+
+                    try {
+                        await s3.send(command);
+                    } catch (err) {
+                        console.error(`Error uploading file: ${err}`);
+                        reject(err);
+                        return;
+                    }
+                }
+
+                console.log("Upload complete");
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        });
+    });
+};
+
+build_app_and_upload_output().catch(error => {
+    console.error('Error in build and upload process:', error);
+    process.exit(1);
+});
