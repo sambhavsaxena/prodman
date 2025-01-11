@@ -4,7 +4,6 @@ const fs = require('fs');
 const mime = require('mime-types');
 const Redis = require("ioredis");
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -56,6 +55,8 @@ const build_app_and_upload_output = async () => {
 
         upload_process.on('close', async (code) => {
             if (code !== 0) {
+                publish_logs(`Build failed with exit code ${code}`);
+                await publisher.disconnect();
                 reject(new Error(`Build process exited with code ${code}`));
                 return;
             }
@@ -63,11 +64,9 @@ const build_app_and_upload_output = async () => {
             try {
                 console.log(`Build complete✨\nUploading assets...`);
                 publish_logs("Build complete✨\nUploading assets...");
-                const build_directory = findBuildDirectory(source_directory_path);
 
-                const build_contents = fs.readdirSync(build_directory, {
-                    recursive: true,
-                });
+                const build_directory = findBuildDirectory(source_directory_path);
+                const build_contents = fs.readdirSync(build_directory, { recursive: true });
 
                 for (const file of build_contents) {
                     const file_path = path.join(build_directory, file);
@@ -75,6 +74,7 @@ const build_app_and_upload_output = async () => {
 
                     console.log(`Uploading ${file}`);
                     publish_logs(`Uploading ${file}`);
+
                     const command = new PutObjectCommand({
                         Bucket: process.env.AWS_BUCKET_NAME,
                         Key: `__outputs/${PROJECT_ID}/${file}`,
@@ -87,21 +87,26 @@ const build_app_and_upload_output = async () => {
                     } catch (err) {
                         console.error(`Error uploading file: ${err}`);
                         publish_logs(`Error uploading file: ${err}`);
+                        await publisher.disconnect();
                         reject(err);
                         return;
                     }
                 }
+
                 publish_logs("Done💫");
+                await publisher.disconnect();
                 resolve();
             } catch (err) {
+                await publisher.disconnect();
                 reject(err);
             }
         });
     });
 };
 
-build_app_and_upload_output().catch(error => {
+build_app_and_upload_output().catch(async error => {
     console.error('Error in build and upload process:', error);
     publish_logs(`Error in build and upload process: ${error}`);
+    await publisher.disconnect();
     process.exit(1);
 });
