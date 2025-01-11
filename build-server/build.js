@@ -2,12 +2,19 @@ const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const mime = require('mime-types');
+const Redis = require("ioredis");
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const dotenv = require('dotenv');
 dotenv.config();
 
 const PROJECT_ID = process.env.PROJECT_ID;
+const REDIS_URI = process.env.REDIS_URI;
+const publisher = new Redis(REDIS_URI);
+
+const publish_logs = (log) => {
+    publisher.publish(`logs:${PROJECT_ID}`, JSON.stringify(log));
+}
 
 const s3 = new S3Client({
     region: process.env.AWS_REGION,
@@ -31,6 +38,7 @@ const findBuildDirectory = (sourceDir) => {
 
 const build_app_and_upload_output = async () => {
     console.log("Starting build process...");
+    publish_logs("Starting build process...");
     const source_directory_path = path.join(__dirname, 'source');
 
     return new Promise((resolve, reject) => {
@@ -38,10 +46,12 @@ const build_app_and_upload_output = async () => {
 
         upload_process.stdout.on('data', (data) => {
             console.log(data.toString());
+            publish_logs(data.toString());
         });
 
         upload_process.stderr.on('data', (data) => {
-            console.error(data.toString());
+            console.error("Error: " + data.toString());
+            publish_logs("Error: " + data.toString());
         });
 
         upload_process.on('close', async (code) => {
@@ -52,8 +62,8 @@ const build_app_and_upload_output = async () => {
 
             try {
                 console.log(`Build complete✨\nUploading assets...`);
+                publish_logs("Build complete✨\nUploading assets...");
                 const build_directory = findBuildDirectory(source_directory_path);
-                console.log(`Found build directory: ${build_directory}`);
 
                 const build_contents = fs.readdirSync(build_directory, {
                     recursive: true,
@@ -64,6 +74,7 @@ const build_app_and_upload_output = async () => {
                     if (fs.lstatSync(file_path).isDirectory()) continue;
 
                     console.log(`Uploading ${file}`);
+                    publish_logs(`Uploading ${file}`);
                     const command = new PutObjectCommand({
                         Bucket: process.env.AWS_BUCKET_NAME,
                         Key: `__outputs/${PROJECT_ID}/${file}`,
@@ -75,12 +86,12 @@ const build_app_and_upload_output = async () => {
                         await s3.send(command);
                     } catch (err) {
                         console.error(`Error uploading file: ${err}`);
+                        publish_logs(`Error uploading file: ${err}`);
                         reject(err);
                         return;
                     }
                 }
-
-                console.log("Upload complete");
+                publish_logs("Done💫");
                 resolve();
             } catch (err) {
                 reject(err);
@@ -91,5 +102,6 @@ const build_app_and_upload_output = async () => {
 
 build_app_and_upload_output().catch(error => {
     console.error('Error in build and upload process:', error);
+    publish_logs(`Error in build and upload process: ${error}`);
     process.exit(1);
 });
