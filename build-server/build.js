@@ -17,34 +17,12 @@ const s3 = new S3Client({
     }
 });
 
-build_app_from_source();
-
-const build_app_from_source = async () => {
-    console.log("Starting build process...");
-    const source_directory_path = path.join(__dirname, 'source');
-    const upload_process = exec(`cd ${source_directory_path} && npm install && npm run build`);
-    upload_process.stdout.on('data', (data) => {
-        console.log(data.toString());
-    });
-    upload_process.stderr.on('data', (data) => {
-        console.log("ERROR: ", data.toString());
-    });
-    upload_process.on('exit', (code) => {
-        console.log(`Installation process exited with code ${code}`);
-    });
-    upload_process.on('close', async (code) => {
-        console.log(`Build complete (${code})✨\nUploading files for deployment...`);
-        upload_static_files();
-        console.log("Upload complete");
-    });
-}
-
 const upload_static_files = async () => {
     const possible_build_directories = ["dist", "build"];
     let build_director_path = null;
     for (const folder of possible_build_directories) {
         const valid_build_directory = path.join(__dirname, "source", folder);
-        if (existsSync(valid_build_directory)) {
+        if (fs.existsSync(valid_build_directory)) {
             build_director_path = valid_build_directory;
             break;
         }
@@ -61,7 +39,7 @@ const upload_static_files = async () => {
         if (fs.lstatSync(file_path).isDirectory()) continue;
         console.log(`Uploading ${file}`);
         const command = new PutObjectCommand({
-            Bucket: "deployments",
+            Bucket: process.env.AWS_BUCKET_NAME,
             Key: `__outputs/${PROJECT_ID}/${file}`,
             Body: fs.createReadStream(file_path),
             ContentType: mime.lookup(file_path),
@@ -72,6 +50,28 @@ const upload_static_files = async () => {
             console.error(`Error uploading file: ${err}`);
             throw err;
         }
-        console.log(`Uploaded ${file}`);
     }
+    return;
 }
+
+const build_app_from_source = async () => {
+    console.log("Starting build process...");
+    const source_directory_path = path.join(__dirname, 'source');
+    const upload_process = exec(`cd ${source_directory_path} && npm install && npm run build`);
+    upload_process.stdout.on('data', (data) => {
+        console.log(data.toString());
+    });
+    upload_process.stderr.on('data', (data) => {
+        console.log(data.toString());
+    });
+    upload_process.on('exit', (code) => {
+        console.log(`Installation process exited with code ${code}`);
+    });
+    upload_process.on('close', async (code) => {
+        console.log(`Build complete✨\n[Completed with status code: ${code}]\nUploading assets...`);
+        await upload_static_files();
+        console.log("Upload complete");
+    });
+}
+
+build_app_from_source();

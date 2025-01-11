@@ -9,7 +9,7 @@ RUN apt-get update && \
 
 WORKDIR /home/build-server
 
-COPY .env main.sh build.js package*.json ./
+COPY main.sh build.js package*.json ./
 
 RUN npm install && \
     chmod +x main.sh build.js
