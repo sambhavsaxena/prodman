@@ -10,10 +10,20 @@
   "description": "",
   "dependencies": {
     "@aws-sdk/client-ecs": "^3.726.1",
+    "@clickhouse/client": "^1.10.0",
+    "@prisma/client": "^6.2.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "ioredis": "^5.4.2",
+    "kafkajs": "^2.2.4",
     "random-word-slugs": "^0.1.7",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "uuid": "^11.0.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "prisma": "^6.2.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
   }
 }

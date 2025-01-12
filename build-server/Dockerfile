@@ -9,7 +9,7 @@ RUN apt-get update && \
 
 WORKDIR /home/build-server
 
-COPY main.sh build.js package*.json ./
+COPY main.sh build.js kafka.pem package*.json ./
 
 RUN npm install && \
     chmod +x main.sh build.js
