@@ -141,7 +141,7 @@ app.post('/deploy', async (req, res) => {
                             { name: 'DEPLOYMENT_ID', value: deployment.id },
                             { name: 'KAFKA_BROKER', value: process.env.KAFKA_BROKER },
                             { name: 'KAFKA_USERNAME', value: process.env.KAFKA_USERNAME },
-                            { name: 'KAFKA_PASSWORD', value: process.env.KAFKA_PASSWORD }
+                            { name: 'KAFKA_PASSWORD', value: process.env.KAFKA_PASSWORD },
                         ]
                     }
                 ]
@@ -183,18 +183,18 @@ const initialize_kafka_consumer = async () => {
             for (const message of messages) {
                 if (!message.value) continue;
                 const stringMessage = message.value.toString()
-                const { PROJECT_ID, DEPLOYEMENT_ID, log } = JSON.parse(stringMessage)
-                console.log({ log, DEPLOYEMENT_ID })
+                const { PROJECT_ID, DEPLOYMENT_ID, log } = JSON.parse(stringMessage)
+                console.log({ log, DEPLOYMENT_ID })
                 try {
                     const { query_id } = await clickhouse.insert({
                         table: 'log_events',
-                        values: [{ event_id: uuidv4(), deployment_id: DEPLOYEMENT_ID, log }],
+                        values: [{ event_id: uuidv4(), deployment_id: DEPLOYMENT_ID, log }],
                         format: 'JSONEachRow'
                     })
                     console.log(query_id)
                     resolveOffset(message.offset)
-                    await commitOffsetsIfNecessary(message.offset)
-                    await heartbeat()
+                    await commitOffsetsIfNecessary(message.offset);
+                    await heartbeat();
                 } catch (err) {
                     console.log(err)
                 }
