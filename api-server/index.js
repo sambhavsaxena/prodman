@@ -2,7 +2,6 @@ const express = require('express');
 const dotenv = require('dotenv');
 const { generateSlug } = require('random-word-slugs')
 const { ECSClient, RunTaskCommand } = require('@aws-sdk/client-ecs')
-const { Server } = require('socket.io')
 const cors = require('cors');
 const { z } = require('zod');
 const { PrismaClient } = require('@prisma/client');
@@ -15,7 +14,6 @@ const path = require('path');
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT;
-const PROXY_PORT = process.env.PROXY_PORT;
 const SOCKET_PORT = process.env.SOCKET_PORT;
 
 const kafka = new Kafka({
@@ -40,19 +38,6 @@ const clickhouse = createClient({
 
 const subscriber = kafka.consumer({ groupId: 'api-server-logs-consumer' });
 const prisma = new PrismaClient();
-
-const io = new Server({ cors: { origin: '*' } });
-
-io.on('connection', (socket) => {
-	socket.on('subscribe', (channel) => {
-		socket.join(channel);
-		socket.emit('message', `Joined channel: ${channel}`);
-	});
-});
-
-io.listen(SOCKET_PORT, () => {
-	console.log(`Socket server running on PORT: SOCKET_PORT`);
-})
 
 const ecs = new ECSClient({
 	region: process.env.AWS_REGION,
