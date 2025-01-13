@@ -22,14 +22,14 @@ enum deployment_status {
 }
 
 model Project {
-  id            String        @id @default(uuid())
+  id            String       @id @default(uuid())
   name          String
   git_url       String
   subdomain     String
   custom_domain String?
   deployments   Deployment[]
-  created_at    DateTime      @default(now())
-  updated_at    DateTime      @updatedAt
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
 }
 
 model Deployment {
@@ -37,18 +37,18 @@ model Deployment {
   project    Project           @relation(fields: [project_id], references: [id])
   project_id String
   status     deployment_status @default(NOT_STARTED)
-  created_at    DateTime      @default(now())
-  updated_at    DateTime      @updatedAt
+  created_at DateTime          @default(now())
+  updated_at DateTime          @updatedAt
 }
 
 model ProxyLog {
-  id           Int      @id @default(autoincrement())
-  domain       String
-  resolved_url String?
-  error        String?
-  type         String
+  id            Int      @id @default(autoincrement())
+  domain        String
+  resolved_url  String?
+  error         String?
+  type          String
   deployment_id String?
-  created_at   DateTime @default(now())
+  created_at    DateTime @default(now())
 
   @@map("proxy_logs")
 }
