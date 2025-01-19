@@ -1,6 +1,5 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
@@ -21,15 +20,25 @@ enum deployment_status {
   FAILED
 }
 
+model User {
+  id         String    @id @default(uuid())
+  email      String    @unique
+  projects   Project[]
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+}
+
 model Project {
-  id            String        @id @default(uuid())
+  id            String       @id @default(uuid())
   name          String
   git_url       String
   subdomain     String
   custom_domain String?
   deployments   Deployment[]
-  created_at    DateTime      @default(now())
-  updated_at    DateTime      @updatedAt
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
+  user          User         @relation(fields: [user_id], references: [id])
+  user_id       String
 }
 
 model Deployment {
@@ -37,18 +46,18 @@ model Deployment {
   project    Project           @relation(fields: [project_id], references: [id])
   project_id String
   status     deployment_status @default(NOT_STARTED)
-  created_at    DateTime      @default(now())
-  updated_at    DateTime      @updatedAt
+  created_at DateTime          @default(now())
+  updated_at DateTime          @updatedAt
 }
 
 model ProxyLog {
-  id           Int      @id @default(autoincrement())
-  domain       String
-  resolved_url String?
-  error        String?
-  type         String
+  id            Int      @id @default(autoincrement())
+  domain        String
+  resolved_url  String?
+  error         String?
+  type          String
   deployment_id String?
-  created_at   DateTime @default(now())
+  created_at    DateTime @default(now())
 
   @@map("proxy_logs")
 }
