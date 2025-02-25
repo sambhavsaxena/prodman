@@ -1,5 +1,5 @@
 # Prodman
-An underrated nodejs based app deployment platform.
+An underrated nodejs based app deployment platform. Run in headless mode on your local.
 
 ### Tech behind
 - NodeJS
