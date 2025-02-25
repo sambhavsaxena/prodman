@@ -1,5 +1,5 @@
 # Prodman
-A nodejs based app deployment platform.
+An underrated nodejs based app deployment platform.
 
 ### Tech behind
 - NodeJS
